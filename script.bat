@@ -1,29 +1,27 @@
-
+@ECHO OFF
 
 REM Define variables
-SET "APP_NAME=Sprint_prom16"
-SET "APP_DIR=%~dp0"
-SET "PACKAGE_DIR=%APP_DIR%bin"
-SET "JAR_FILE=%APP_DIR%%APP_NAME%.jar"
-SET "LIB_DIR=D:\Mr naina\framework\sprints\lib"
-SET "TEMP_DIR=%APP_DIR%temp"
+    SET APP_DIR=%~dp0
+    SET SRC_DIR=%APP_DIR%src
+    SET BIN_DIR=%APP_DIR%bin
+    SET LIB_DIR=%APP_DIR%lib
+    SET TEMP_JAVA_DIR=%APP_DIR%tempjava
+    SET TEST_NAME_DIR=TestFramework
 
-CD /D "%APP_DIR%"
-javac -cp "./lib/servlet-api.jar" -d "./bin" "./src/mgituprom16/*.java"
+REM Copier les *.java dans un dossier temporaire tempjava
+    MKDIR "%APP_DIR%\tempjava"
+    for /R "%SRC_DIR%" %%G IN (*.java) DO (
+        XCOPY /Y "%%G" "%APP_DIR%\tempjava"
+    )
 
-REM Create TEMP_DIR if it doesn't exist
-MKDIR "%TEMP_DIR%"
+REM Compile Java classes
+    javac -cp "%LIB_DIR%\*" -d "%BIN_DIR%" "%TEMP_JAVA_DIR%\*.java"
 
-REM Copy PACKAGE_DIR content to TEMP_DIR
-XCOPY "%PACKAGE_DIR%\*" "%TEMP_DIR%\"  /E /I /Y
+REM Supprimer le dossier temporaire apres compilation
+    RD /S /Q "%TEMP_JAVA_DIR%"
 
-REM Create a .jar file from the temporary directory
-jar cvf "%JAR_FILE%" -C "%TEMP_DIR%" .
+REM Archiver en .jar
+    jar cf Sprint_prom16.jar -C "%BIN_DIR%" .
 
-REM Copy the JAR_FILE into the LIB_DIR directory
-COPY /Y "%JAR_FILE%" "%LIB_DIR%"
-
-REM Remove TEMP_DIR and its content
-RD /S /Q "%TEMP_DIR%"
-@REM ECHO Creation of the application "%APP_NAME%" completed successfully!
-
+REM Copy the .jar file to the lib directory of Project tomcat
+move /Y Sprint_prom16.jar "..\%TEST_NAME_DIR%\WEB-INF\lib\"
