@@ -2,11 +2,11 @@ package mg.itu.prom16;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.lang.reflect.*;
 
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
@@ -51,7 +51,7 @@ public class FrontController extends HttpServlet {
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+            throws ServletException, IOException, ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
 
         response.setContentType("text/html");
         PrintWriter out = response.getWriter();
@@ -66,9 +66,14 @@ public class FrontController extends HttpServlet {
         Mapping mapping = urlMappings.get(relativeURI);
 
         if (mapping != null) {
+
+            Class<?> controllClass=Class.forName(mapping.getClassName());
+            Object controllerInstance=controllClass.getDeclaredConstructor().newInstance();
+            Method method=controllClass.getMethod(mapping.getMethodName());
+            Object result=method.invoke(controllerInstance);
             out.println("<html><head><title>Servlet Response</title></head><body>");
             out.println("<p>URL: " + relativeURI + "</p>");
-            out.println("<p>Mapping: " + mapping + "</p>");
+            out.println("<p>Mapping: " + mapping + "   Resutl: "+result+"</p>"); 
             out.println("</body></html>");
         } else {
             out.println("<html><head><title>Servlet Response</title></head><body>");
@@ -80,12 +85,26 @@ public class FrontController extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        try {
+            processRequest(request, response);
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException
+                | InvocationTargetException | NoSuchMethodException | SecurityException | ServletException
+                | IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        try {
+            processRequest(request, response);
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException
+                | InvocationTargetException | NoSuchMethodException | SecurityException | ServletException
+                | IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 }
