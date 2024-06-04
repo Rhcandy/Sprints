@@ -51,36 +51,56 @@ public class FrontController extends HttpServlet {
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException, ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+        throws ServletException, IOException, ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
 
-        response.setContentType("text/html");
-        PrintWriter out = response.getWriter();
-        
-        // Récupérer l'URL après le port et le host
-        String requestURI = request.getRequestURI();
-        String contextPath = request.getContextPath();
+    response.setContentType("text/html");
+    PrintWriter out = response.getWriter();
 
-        // Retirer le contexte de l'application si nécessaire
-        String relativeURI = requestURI.substring(contextPath.length());
+    // Récupérer l'URL après le port et le host
+    // String requestURI = request.getRequestURI();
+    // String contextPath = request.getContextPath();
 
-        Mapping mapping = urlMappings.get(relativeURI);
+    // Retirer le contexte de l'application si nécessaire
+    // String relativeURI = requestURI.substring(contextPath.length());
+    String relativeURI = request.getServletPath();
 
-        if (mapping != null) {
+    Mapping mapping = urlMappings.get(relativeURI);
 
-            Class<?> controllClass=Class.forName(mapping.getClassName());
-            Object controllerInstance=controllClass.getDeclaredConstructor().newInstance();
-            Method method=controllClass.getMethod(mapping.getMethodName());
-            Object result=method.invoke(controllerInstance);
+    for (String key : urlMappings.keySet()) {
+        out.println("<html><head><title>Servlet Response</title></head><body>");
+        out.println("<p> URL: " + key + "  mapping: "+urlMappings.get(key).getClassName()+" | "+ urlMappings.get(key).getMethodName()  +"</p>");
+        out.println("</body></html>");
+    }
+
+    
+    if (mapping != null) {
+        Class<?> controllClass = Class.forName(mapping.getClassName());
+        Object controllerInstance = controllClass.getDeclaredConstructor().newInstance();
+        Method method = controllClass.getMethod(mapping.getMethodName());
+        Object result = method.invoke(controllerInstance);
+
+        if (result instanceof String) {
             out.println("<html><head><title>Servlet Response</title></head><body>");
-            out.println("<p>URL: " + relativeURI + "</p>");
-            out.println("<p>Mapping: " + mapping + "   Resutl: "+result+"</p>"); 
+            out.println("<p>hgsndckjbwnnBWxnbhVQcw</p>");
+            out.println("<p>" + result + "</p>");
             out.println("</body></html>");
+        } else if (result instanceof ModelView) {
+            ModelView modelView = (ModelView) result;
+            for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
+                request.setAttribute(entry.getKey(), entry.getValue());
+            }
+            request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
         } else {
             out.println("<html><head><title>Servlet Response</title></head><body>");
-            out.println("<p>No method associated with this URL: " + relativeURI + "</p>");
+            out.println("<p>Type de retour non reconnu</p>");
             out.println("</body></html>");
         }
+    } else {
+        out.println("<html><head><title>Servlet Response</title></head><body>");
+        out.println("<p>No method associated with this URL: " + relativeURI + "</p>");
+        out.println("</body></html>");
     }
+}
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
