@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import mg.itu.prom16.annotation.*;
 import mg.itu.prom16.util.*;
+import mg.itu.prom16.exception.*;
 
 public class FrontController extends HttpServlet {
     private List<Class<?>> classes;
@@ -27,12 +28,16 @@ public class FrontController extends HttpServlet {
         super.init(config);
         classes = new ArrayList<>();
         basePackageName = config.getInitParameter("packageTest");
-
         try {
             initVariable();
-        } catch (Exception e) {
-            throw new ServletException(e);
+        }  catch (PackageNotFoundException | DuplicateUrlException e) {
+            e.printStackTrace();
+            throw new Error(e.getMessage());
         }
+        catch (Exception ex){
+            throw new ServletException(ex);
+        }
+        
     }
 
     protected void initVariable() throws Exception {
@@ -45,62 +50,57 @@ public class FrontController extends HttpServlet {
                     String url = getAnnotation.value();
                     Mapping mapping = new Mapping(controller.getName(), method.getName());
                     urlMappings.put(url, mapping);
+
+                    if (!urlMappings.containsKey(url)) {
+                        this.urlMappings.put(url, mapping);
+                    }
+                    else {
+                        throw new DuplicateUrlException(url);
+                    }
                 }
             }
         }
     }
 
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException, ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
 
-    response.setContentType("text/html");
-    PrintWriter out = response.getWriter();
+            response.setContentType("text/html");
+            PrintWriter out = response.getWriter();
+            String relativeURI = request.getServletPath();
+            Mapping mapping = urlMappings.get(relativeURI);
 
-    // Récupérer l'URL après le port et le host
-    // String requestURI = request.getRequestURI();
-    // String contextPath = request.getContextPath();
+        if (mapping != null) {
+            Class<?> controllClass = Class.forName(mapping.getClassName());
+            Object controllerInstance = controllClass.getDeclaredConstructor().newInstance();
+            Method method = controllClass.getMethod(mapping.getMethodName());
+            Object result = method.invoke(controllerInstance);
 
-    // Retirer le contexte de l'application si nécessaire
-    // String relativeURI = requestURI.substring(contextPath.length());
-    String relativeURI = request.getServletPath();
-
-    Mapping mapping = urlMappings.get(relativeURI);
-
-    for (String key : urlMappings.keySet()) {
-        out.println("<html><head><title>Servlet Response</title></head><body>");
-        out.println("<p> URL: " + key + "  mapping: "+urlMappings.get(key).getClassName()+" | "+ urlMappings.get(key).getMethodName()  +"</p>");
-        out.println("</body></html>");
-    }
-
-    
-    if (mapping != null) {
-        Class<?> controllClass = Class.forName(mapping.getClassName());
-        Object controllerInstance = controllClass.getDeclaredConstructor().newInstance();
-        Method method = controllClass.getMethod(mapping.getMethodName());
-        Object result = method.invoke(controllerInstance);
-
-        if (result instanceof String) {
-            out.println("<html><head><title>Servlet Response</title></head><body>");
-            out.println("<p>hgsndckjbwnnBWxnbhVQcw</p>");
-            out.println("<p>" + result + "</p>");
-            out.println("</body></html>");
-        } else if (result instanceof ModelView) {
-            ModelView modelView = (ModelView) result;
-            for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
-                request.setAttribute(entry.getKey(), entry.getValue());
+            if (result instanceof String) {
+                out.println("<html><head><title>Servlet Response</title></head><body>");
+                out.println("<p>" + result + "</p>");
+                out.println("</body></html>");
+            } else if (result instanceof ModelView) {
+                ModelView modelView = (ModelView) result;
+                for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
+                    request.setAttribute(entry.getKey(), entry.getValue());
+                }
+                request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
+            } else {
+                try {
+                    throw new InvalidReturnTypeException(result.toString());
+                } catch (InvalidReturnTypeException e) {
+                    e.printStackTrace();
+                }
+                
             }
-            request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
         } else {
             out.println("<html><head><title>Servlet Response</title></head><body>");
-            out.println("<p>Type de retour non reconnu</p>");
+            out.println("<p>No method associated with this URL: " + relativeURI + "</p>");
             out.println("</body></html>");
         }
-    } else {
-        out.println("<html><head><title>Servlet Response</title></head><body>");
-        out.println("<p>No method associated with this URL: " + relativeURI + "</p>");
-        out.println("</body></html>");
     }
-}
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
