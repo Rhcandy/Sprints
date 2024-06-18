@@ -75,7 +75,8 @@ public class FrontController extends HttpServlet {
             Class<?> controllClass = Class.forName(mapping.getClassName());
             Object controllerInstance = controllClass.getDeclaredConstructor().newInstance();
             Method method = controllClass.getMethod(mapping.getMethodName());
-            Object result = method.invoke(controllerInstance);
+            Object[] parameters = resolveParameterValues(request, method);
+            Object result = method.invoke(controllerInstance, parameters);
 
             if (result instanceof String) {
                 out.println("<html><head><title>Servlet Response</title></head><body>");
@@ -102,6 +103,23 @@ public class FrontController extends HttpServlet {
         }
     }
 
+   
+    private Object[] resolveParameterValues(HttpServletRequest request, Method method) {
+        Parameter[] parameters = method.getParameters();
+        Object[] parameterValues = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            if (parameters[i].isAnnotationPresent(Param.class)) {
+                Param param = parameters[i].getAnnotation(Param.class);
+                parameterValues[i] = request.getParameter(param.name());
+            } else if (parameters[i].getType() == HttpServletRequest.class) {
+                parameterValues[i] = request;
+            } else {
+                parameterValues[i] = null;
+            }
+        }
+        return parameterValues;
+    }
+    
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
