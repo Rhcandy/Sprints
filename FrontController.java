@@ -103,22 +103,52 @@ public class FrontController extends HttpServlet {
         }
     }
 
-   
-    private Object[] resolveParameterValues(HttpServletRequest request, Method method) {
-        Parameter[] parameters = method.getParameters();
-        Object[] parameterValues = new Object[parameters.length];
-        for (int i = 0; i < parameters.length; i++) {
-            if (parameters[i].isAnnotationPresent(Param.class)) {
-                Param param = parameters[i].getAnnotation(Param.class);
-                parameterValues[i] = request.getParameter(param.name());
-            } else if (parameters[i].getType() == HttpServletRequest.class) {
-                parameterValues[i] = request;
-            } else {
-                parameterValues[i] = null;
+    private Object[] resolveParameterValues(HttpServletRequest request, Method method) 
+        throws IllegalAccessException, InstantiationException {
+    Parameter[] parameters = method.getParameters();
+    Object[] parameterValues = new Object[parameters.length];
+    for (int i = 0; i < parameters.length; i++) {
+        if (parameters[i].isAnnotationPresent(Param.class)) {
+            Param param = parameters[i].getAnnotation(Param.class);
+            parameterValues[i] = request.getParameter(param.name());
+        } else if (parameters[i].isAnnotationPresent(RequestObject.class)) {
+            Class<?> paramType = parameters[i].getType();
+            Object paramObject = paramType.newInstance();
+            Field[] fields = paramType.getDeclaredFields();
+            for (Field field : fields) {
+                String paramName = field.isAnnotationPresent(FieldParam.class) ?
+                        field.getAnnotation(FieldParam.class).name() : field.getName();
+                String paramValue = request.getParameter(paramName);
+                field.setAccessible(true);
+                field.set(paramObject, convertType(paramValue, field.getType()));
             }
+            parameterValues[i] = paramObject;
+        } else if (parameters[i].getType() == HttpServletRequest.class) {
+            parameterValues[i] = request;
+        } else {
+            parameterValues[i] = null;
         }
-        return parameterValues;
     }
+    return parameterValues;
+    }
+    private Object convertType(String value, Class<?> targetType) {
+        if (value == null) {
+            return null;
+        }
+        if (targetType == String.class) {
+            return value;
+        } else if (targetType == int.class || targetType == Integer.class) {
+            return Integer.parseInt(value);
+        } else if (targetType == long.class || targetType == Long.class) {
+            return Long.parseLong(value);
+        } else if (targetType == double.class || targetType == Double.class) {
+            return Double.parseDouble(value);
+        } else if (targetType == boolean.class || targetType == Boolean.class) {
+            return Boolean.parseBoolean(value);
+        }
+        return null;
+        }
+
     
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
