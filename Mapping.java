@@ -1,23 +1,34 @@
 package mg.itu.prom16.util;
 
+import java.lang.reflect.Method;
+
 public class Mapping {
-    private String  className;
-    private String methodName;
+    
+    Class<?> class1;
+    Method method;
 
-    public String getClassName() {
-        return className;
+    
+    public Mapping(Class<?> class1, Method method) {
+        this.class1 = class1;
+        this.method = method;
     }
 
-    public String getMethodName() {
-        return methodName;
+
+    public Method getMethod() {
+        return method;
     }
 
-    public Mapping(String className, String methodName) {
-        this.className = className;
-        this.methodName = methodName;
+
+    public void setMethod(Method method) {
+        this.method = method;
     }
-    @Override
-    public String toString(){
-        return "className="+className+"methodName="+methodName;
+
+
+    public Class<?> getClass1() {
+        return class1;
+    }
+
+    public void setClass1(Class<?> class1) {
+        this.class1 = class1;
     }
 }
