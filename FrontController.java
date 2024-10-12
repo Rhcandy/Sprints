@@ -1,178 +1,238 @@
-package mg.itu.prom16;
+package mg.itu.prom16.servlet;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.lang.reflect.*;
-
-import jakarta.servlet.ServletConfig;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.*;
 
-import mg.itu.prom16.annotation.*;
-import mg.itu.prom16.util.*;
-import mg.itu.prom16.exception.*;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashMap;
+
+import mg.itu.prom16.annotation.Controller;
+import mg.itu.prom16.annotation.GET;
+import mg.itu.prom16.annotation.POST;
+import mg.itu.prom16.annotation.RestApi;
+import mg.itu.prom16.annotation.URL;
+import mg.itu.prom16.exception.DuplicateUrlException;
+import mg.itu.prom16.exception.InvalidReturnTypeException;
+import mg.itu.prom16.exception.PackageNotFoundException;
+import mg.itu.prom16.util.ApiRequest;
+import mg.itu.prom16.util.ClassScanner;
+import mg.itu.prom16.util.JsonParserUtil;
+import mg.itu.prom16.util.Mapping;
+import mg.itu.prom16.util.ServletUtil;
+import mg.itu.prom16.util.ModelView;
+
 
 public class FrontController extends HttpServlet {
-    private List<Class<?>> classes;
-    private String basePackageName;
-    private Map<String, Mapping> urlMappings = new HashMap<>();
+    private String basePackage ;
+    private HashMap<String , Mapping> listMapping;
+
 
     @Override
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
-        classes = new ArrayList<>();
-        basePackageName = config.getInitParameter("packageTest");
+        // Obtenez la valeur du package
+        basePackage = config.getInitParameter("basePackageName");
         try {
-            initVariable();
-        }  catch (PackageNotFoundException | DuplicateUrlException e) {
+            initHashMap();
+        } 
+        catch (PackageNotFoundException | DuplicateUrlException e) {
             e.printStackTrace();
             throw new Error(e.getMessage());
         }
         catch (Exception ex){
             throw new ServletException(ex);
         }
-        
     }
 
-    protected void initVariable() throws Exception {
-        classes = ClassScanner.scanClasses(basePackageName, Controller.class);
-        for (Class<?> controller : classes) {
-            Method[] methods = controller.getDeclaredMethods();
-            for (Method method : methods) {
-                if (method.isAnnotationPresent(Get.class)) {
-                    Get getAnnotation = method.getAnnotation(Get.class);
-                    String url = getAnnotation.value();
-                    Mapping mapping = new Mapping(controller.getName(), method.getName());
-                    urlMappings.put(url, mapping);
+    protected void doRestApi(Object valueFunction, HttpServletResponse response) throws Exception {
+        try {
+            if (valueFunction instanceof ModelView) {
+                ModelView modelView = (ModelView) valueFunction;
+                HashMap<String, Object> listKeyAndValue = modelView.getData();
+                String dataString = JsonParserUtil.objectToJson(listKeyAndValue);
+                response.getWriter().println(dataString);
+                response.getWriter().close();
+            }
+            else {
+                String dataString = JsonParserUtil.objectToJson(valueFunction);
+                response.getWriter().println(dataString);
+                response.getWriter().close();
+            }
+        } catch (Exception e) {
+            throw new ServletException(e);
+        }
+    }
 
-                    if (!urlMappings.containsKey(url)) {
-                        this.urlMappings.put(url, mapping);
+    protected void dispatcher (HttpServletRequest request , HttpServletResponse response,  Object valueFunction) throws InvalidReturnTypeException, Exception{
+        try{
+            PrintWriter out = response.getWriter();
+            if (valueFunction instanceof ModelView) {
+
+                ModelView modelAndView = (ModelView)valueFunction;
+
+                String nameView = modelAndView.getViewName();
+                HashMap<String, Object> listKeyAndValue = modelAndView.getData();
+                
+                for (Map.Entry<String, Object> map : listKeyAndValue.entrySet()) {
+                    request.setAttribute(map.getKey(),  map.getValue());
+                }
+
+                String queryString = request.getQueryString();
+                RequestDispatcher dispatcher = request.getRequestDispatcher(nameView +"?" + queryString);
+                dispatcher.forward(request, response);
+            }
+            else if (valueFunction instanceof String) { // si string
+                out.println("<ul><li> Valeur de la fonction :  "+ valueFunction.toString() + "</li></ul>");
+            }
+            else {
+                throw new InvalidReturnTypeException(valueFunction.toString());
+            }
+        }
+        catch (Exception e) {
+            throw new ServletException(e);
+        }
+    }
+
+    protected void initHashMap() throws DuplicateUrlException, PackageNotFoundException, Exception {
+        List<Class<?>> classes = ClassScanner.scanClasses(basePackage, Controller.class);
+        listMapping = new HashMap<String, Mapping>();
+
+        for (Class<?> class1 : classes) {
+            Method[] methods = class1.getDeclaredMethods();
+        
+            for (Method method : methods) {
+                if (method.isAnnotationPresent(URL.class)) {
+                    String valueAnnotation = method.getAnnotation(URL.class).value();
+                    
+                    String verb = getMethod(method);
+                    if (!listMapping.containsKey(valueAnnotation)) {
+                        
+                        HashMap<String, Method> apiRequests = new HashMap<String, Method>();
+                        apiRequests.put(verb, method);
+                        Mapping mapping = new Mapping(class1, apiRequests);
+
+                        this.listMapping.put(valueAnnotation, mapping);
                     }
                     else {
-                        throw new DuplicateUrlException(url);
+                        Mapping map = listMapping.get(valueAnnotation);
+                        HashMap<String, Method> apiRequests2 = map.getApiRequests();
+
+                        if (!apiRequests2.containsKey(verb)) {
+                            apiRequests2.put(verb, method);
+                            this.listMapping.put(valueAnnotation, map);
+                        }
+                        else {
+                            throw new DuplicateUrlException(valueAnnotation, verb);
+                        }
+                        
                     }
                 }
             }
         }
+        
+    }
+
+    protected String getMethod(Method method) {
+        if (method.getAnnotation(GET.class) != null) {
+            return "GET";
+        }      
+        else if (method.getAnnotation(POST.class) != null) {
+            return "POST";
+        }  
+        return "GET"; //par defaut si il y a pas de verb
+    }
+
+    protected void isValidVerb(HttpServletRequest request, Method method) throws Exception {
+        String verbRequest = request.getMethod();
+        String verbMethod = getMethod(method);
+
+        System.out.println("REQUEST : "+ verbRequest);
+        System.out.println("Method : "+ verbMethod);
+
+        if(!verbMethod.equals(verbRequest)) {
+            throw new Exception("HTTP method mismatch: expected " + verbMethod + ", but received " + verbRequest);
+        }
+    }
+
+    protected Method getMethodByVerb(HttpServletRequest request, Mapping mapping) throws Exception {
+        String verb = request.getMethod();
+        HashMap<String, Method> liHashMap = mapping.getApiRequests();
+        Method method = liHashMap.get(verb);
+        if (method != null) {
+            isValidVerb(request, method);
+            return method;
+        }
+
+        StringBuilder keysString = new StringBuilder();
+        for (String key : liHashMap.keySet()) {
+            keysString.append(key).append(", ");
+        }
+        if (keysString.length() > 0) {
+            keysString.setLength(keysString.length() - 2); // Retirer les deux derniers caractères (", ")
+        }
+
+        throw new Exception("HTTP method mismatch: expected " + keysString.toString() + " but received "+ verb);
     }
 
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-        throws ServletException, IOException, ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+            throws ServletException, IOException { 
+        String relativeURI = request.getServletPath();
+        String queryString = request.getQueryString();
+        
+        System.out.println(relativeURI);
+        System.out.println(queryString);
 
-            response.setContentType("text/html");
-            PrintWriter out = response.getWriter();
-            String relativeURI = request.getServletPath();
-            Mapping mapping = urlMappings.get(relativeURI);
 
-        if (mapping != null) {
-            Class<?> controllClass = Class.forName(mapping.getClassName());
-            Object controllerInstance = controllClass.getDeclaredConstructor().newInstance();
-            Method method = controllClass.getMethod(mapping.getMethodName());
-            Object[] parameters = resolveParameterValues(request, method);
-            Object result = method.invoke(controllerInstance, parameters);
+        try {
+            boolean isPresent = listMapping.containsKey(relativeURI);
+            if (!isPresent) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;           
+            }
+            
+            Mapping mapping =  listMapping.get(relativeURI);
+            Method method = getMethodByVerb(request, mapping);
 
-            if (result instanceof String) {
-                out.println("<html><head><title>Servlet Response</title></head><body>");
-                out.println("<p>" + result + "</p>");
-                out.println("</body></html>");
-            } else if (result instanceof ModelView) {
-                ModelView modelView = (ModelView) result;
-                for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
-                    request.setAttribute(entry.getKey(), entry.getValue());
-                }
-                request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
+            Object instance = mapping.getClass1().getDeclaredConstructor().newInstance();
+            List<Object> listArgs = ServletUtil.parseParameters(request, method);
+
+            ServletUtil.putSession(request,  instance);
+            Object valueFunction = method.invoke(instance, listArgs.toArray());
+            
+            RestApi restApi = method.getAnnotation(RestApi.class);
+            if (restApi != null) {
+                response.setContentType("text/json");
+                doRestApi(valueFunction, response);
             } else {
-                try {
-                    throw new InvalidReturnTypeException(result.toString());
-                } catch (InvalidReturnTypeException e) {
-                    e.printStackTrace();
-                }
-                
+                dispatcher(request, response, valueFunction);
             }
-        } else {
-            out.println("<html><head><title>Servlet Response</title></head><body>");
-            out.println("<p>No method associated with this URL: " + relativeURI + "</p>");
-            out.println("</body></html>");
+        } 
+        catch (Exception e) {   
+            e.printStackTrace();
+            response.setContentType("text/html;charset=UTF-8");    
+            PrintWriter out = response.getWriter();
+            out.println("<p>" + e.getMessage() + "</p>");
+            out.close();  
         }
     }
 
-    private Object[] resolveParameterValues(HttpServletRequest request, Method method) 
-        throws IllegalAccessException, InstantiationException {
-    Parameter[] parameters = method.getParameters();
-    Object[] parameterValues = new Object[parameters.length];
-    for (int i = 0; i < parameters.length; i++) {
-        if (parameters[i].isAnnotationPresent(Param.class)) {
-            Param param = parameters[i].getAnnotation(Param.class);
-            parameterValues[i] = request.getParameter(param.name());
-        } else if (parameters[i].isAnnotationPresent(RequestObject.class)) {
-            Class<?> paramType = parameters[i].getType();
-            Object paramObject = paramType.newInstance();
-            Field[] fields = paramType.getDeclaredFields();
-            for (Field field : fields) {
-                String paramName = field.isAnnotationPresent(FieldParam.class) ?
-                        field.getAnnotation(FieldParam.class).name() : field.getName();
-                String paramValue = request.getParameter(paramName);
-                field.setAccessible(true);
-                field.set(paramObject, convertType(paramValue, field.getType()));
-            }
-            parameterValues[i] = paramObject;
-        } else if (parameters[i].getType() == HttpServletRequest.class) {
-            parameterValues[i] = request;
-        } else {
-            parameterValues[i] = null;
-        }
-    }
-    return parameterValues;
-    }
-    private Object convertType(String value, Class<?> targetType) {
-        if (value == null) {
-            return null;
-        }
-        if (targetType == String.class) {
-            return value;
-        } else if (targetType == int.class || targetType == Integer.class) {
-            return Integer.parseInt(value);
-        } else if (targetType == long.class || targetType == Long.class) {
-            return Long.parseLong(value);
-        } else if (targetType == double.class || targetType == Double.class) {
-            return Double.parseDouble(value);
-        } else if (targetType == boolean.class || targetType == Boolean.class) {
-            return Boolean.parseBoolean(value);
-        }
-        return null;
-        }
 
-    
-    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        try {
-            processRequest(request, response);
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException
-                | InvocationTargetException | NoSuchMethodException | SecurityException | ServletException
-                | IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        processRequest(request, response);
     }
 
-    @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        try {
-            processRequest(request, response);
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException
-                | InvocationTargetException | NoSuchMethodException | SecurityException | ServletException
-                | IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        processRequest(request, response);
     }
+
 }

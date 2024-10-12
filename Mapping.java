@@ -1,23 +1,32 @@
 package mg.itu.prom16.util;
 
+import java.lang.reflect.Method;
+import java.util.HashMap;
+
 public class Mapping {
-    private String  className;
-    private String methodName;
+    
+    Class<?> class1;
+    HashMap<String, Method> apiRequests;
 
-    public String getClassName() {
-        return className;
+    
+    public Mapping(Class<?> class1, HashMap<String, Method> apiRequests) {
+        this.class1 = class1;
+        this.apiRequests = apiRequests;
     }
 
-    public String getMethodName() {
-        return methodName;
+    public Class<?> getClass1() {
+        return class1;
     }
 
-    public Mapping(String className, String methodName) {
-        this.className = className;
-        this.methodName = methodName;
+    public void setClass1(Class<?> class1) {
+        this.class1 = class1;
     }
-    @Override
-    public String toString(){
-        return "className="+className+"methodName="+methodName;
+
+    public HashMap<String, Method> getApiRequests() {
+        return apiRequests;
+    }
+
+    public void setApiRequests(HashMap<String, Method> apiRequests) {
+        this.apiRequests = apiRequests;
     }
 }
