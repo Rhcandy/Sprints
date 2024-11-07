@@ -4,38 +4,34 @@ import java.lang.reflect.Method;
 
 public class ApiRequest {
     // Champs de la classe
-    private String verb;
+    private Class<?> class1;
     private Method method;
 
     // Constructeur
-    public ApiRequest(String verb, Method method) {
-        this.verb = verb;
+    public ApiRequest(Class<?> class1, Method method) {
+        this.class1 = class1;
         this.method = method;
     }
 
-    // Getter pour le verbe HTTP
-    public String getVerb() {
-        return verb;
+    public Class<?> getClass1() {
+        return class1;
     }
 
-    // Setter pour le verbe HTTP
-    public void setVerb(String verb) {
-        this.verb = verb;
+    public void setClass1(Class<?> class1) {
+        this.class1 = class1;
     }
 
-    // Getter pour la méthode
     public Method getMethod() {
         return method;
     }
 
-    // Setter pour la méthode
     public void setMethod(Method method) {
         this.method = method;
     }
-
+    
     // Méthode pour afficher les détails de la requête
     public void printRequestDetails() {
-        System.out.println("HTTP Verb: " + verb);
+        System.out.println("HTTP Verb: " + class1.getSimpleName());
         System.out.println("Method: " + method);
     }
 }
