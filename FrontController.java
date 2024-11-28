@@ -21,6 +21,7 @@ import mg.itu.prom16.annotation.POST;
 import mg.itu.prom16.annotation.RestApi;
 import mg.itu.prom16.annotation.URL;
 import mg.itu.prom16.exception.DuplicateUrlException;
+import mg.itu.prom16.exception.InvalidConstraintException;
 import mg.itu.prom16.exception.InvalidReturnTypeException;
 import mg.itu.prom16.exception.PackageNotFoundException;
 import mg.itu.prom16.util.ApiRequest;
@@ -243,10 +244,17 @@ public class FrontController extends HttpServlet {
             }
             Mapping mapping =  this.listMapping.get(relativeURI);
             mapping.isValidVerb(request);
+<<<<<<< Updated upstream
 
             ApiRequest apiRequest = mapping.getRequest(request.getMethod());
             Method method = apiRequest.getMethod();
 
+=======
+
+            ApiRequest apiRequest = mapping.getRequest(request.getMethod());
+            Method method = apiRequest.getMethod();
+
+>>>>>>> Stashed changes
             Object instance = apiRequest.getClass1().getDeclaredConstructor().newInstance();
             List<Object> listArgs = ServletUtil.parseParameters(request, method);
 
@@ -264,14 +272,17 @@ public class FrontController extends HttpServlet {
                 dispatcher(request, response, valueFunction);
             }
         } 
-        catch (Exception e) {   
+        catch (InvalidConstraintException  e) {
+            e.printStackTrace();
+            throw new ServletException(e);
+        } catch (Exception e) {   
             e.printStackTrace();
             response.setContentType("text/html;charset=UTF-8");    
             response.setStatus(500);
             PrintWriter out = response.getWriter();
             out.println("<p>" + e.getMessage() + "</p>");
             out.close();  
-        }
+        } 
     }
 
 

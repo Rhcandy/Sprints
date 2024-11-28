@@ -4,20 +4,15 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-<<<<<<< Updated upstream
-=======
 import java.util.Map;
 import java.util.regex.Pattern;
 
->>>>>>> Stashed changes
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.Part;
 import mg.itu.prom16.annotation.ModelParam;
 import mg.itu.prom16.annotation.MultiPartFile;
 import mg.itu.prom16.annotation.RequestFile;
 import mg.itu.prom16.annotation.RequestParam;
-<<<<<<< Updated upstream
-=======
 import mg.itu.prom16.exception.InvalidConstraintException;
 import mg.itu.prom16.validation.BindingResult;
 import mg.itu.prom16.validation.FieldError;
@@ -27,15 +22,12 @@ import mg.itu.prom16.validation.constraints.Max;
 import mg.itu.prom16.validation.constraints.Min;
 import mg.itu.prom16.validation.constraints.NotBlank;
 import mg.itu.prom16.validation.constraints.Size;
->>>>>>> Stashed changes
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public class ServletUtil {
-<<<<<<< Updated upstream
-=======
     private static final String EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
 
     public static boolean isValidEmail(String email) {
@@ -149,7 +141,6 @@ public class ServletUtil {
     }
     // end valdation
 
->>>>>>> Stashed changes
     public static List<Object> parseParameters(HttpServletRequest request, Method method) throws Exception {
         List<Object> parsedArgs = new ArrayList<>();
         List<FieldError> fieldErrors = new ArrayList<>();
@@ -175,11 +166,8 @@ public class ServletUtil {
             ModelParam modelParam = arg.getAnnotation(ModelParam.class);
 
             if (modelParam != null) {
-<<<<<<< Updated upstream
-=======
                 Valid valid = arg.getAnnotation(Valid.class);
                 validAnnotExist = true;
->>>>>>> Stashed changes
                 String valueParam = modelParam.value();
                 if (valueParam.isEmpty()) {
                     valueParam = arg.getName();
@@ -187,20 +175,9 @@ public class ServletUtil {
 
                 Class<?> paramaType = arg.getType();
                 Constructor<?> constructor = paramaType.getDeclaredConstructor();
-<<<<<<< Updated upstream
-                Object o = constructor.newInstance();
-
-                for (Field atr : o.getClass().getDeclaredFields()) {
-                    atr.setAccessible(true);
-                    String val = request.getParameter(valueParam + "." + atr.getName());
-                    atr.set(o, val);
-                }
-                value = o;
-=======
                 Object instance = constructor.newInstance();
                 setParamsModel(request, instance, valueParam, valid != null, fieldErrors); // nouveau
                 value = instance;
->>>>>>> Stashed changes
             }
             else if (requestParam != null) {
                 if (requestParam.value().isEmpty()) {
