@@ -3,12 +3,14 @@ package mg.itu.prom16.servlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.MultipartConfig;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -26,6 +28,7 @@ import mg.itu.prom16.util.ClassScanner;
 import mg.itu.prom16.util.JsonParserUtil;
 import mg.itu.prom16.util.Mapping;
 import mg.itu.prom16.util.ServletUtil;
+import mg.itu.prom16.validation.BindingResult;
 import mg.itu.prom16.util.ModelView;
 
 
@@ -177,15 +180,60 @@ public class FrontController extends HttpServlet {
         }
     }
 
+    protected String getRelativeURI(String fullUrl , HttpServletRequest request) throws Exception {
+        try {
+            URI refererUri = new URI(fullUrl);
+            String relativeURI = refererUri.getPath();
+            String contextPath = request.getContextPath();
+            if (relativeURI.startsWith(contextPath)) {
+                relativeURI = relativeURI .substring(contextPath.length());
+                
+            }
+            return relativeURI;
+
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
+    protected BindingResult hasErrors(List<Object> argObjects) {
+        for (Object object : argObjects) {
+            if (object instanceof BindingResult) {
+                BindingResult br = (BindingResult) object;
+                if (br.hasErros()) {
+                    return br;
+                }
+            }
+        }
+        return null;
+    }
+
+    protected void setBackPage(HttpServletRequest request, BindingResult rs) throws Exception {
+        String pagePrecedent = request.getHeader("Referer");
+        
+        HttpSession session = request.getSession();
+        if (session.getAttribute("backPage") != null) { 
+            pagePrecedent = (String) session.getAttribute("backPage");
+        } else {
+            session.setAttribute("backPage", pagePrecedent);
+        }         
+        String relativeURI = getRelativeURI(pagePrecedent, request);
+        Mapping mapping =  this.listMapping.get(relativeURI);
+        String requestForce = "GET";
+        try {
+            Object value = ServletUtil.invokeMethod(mapping, request, requestForce);
+            rs.setBackPage((ModelView) value);    
+        } catch (Exception e) {
+            session.removeAttribute("backPage");
+        }
+            
+    }
+
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException { 
         String relativeURI = request.getServletPath();
-        String queryString = request.getQueryString();
-        
-        System.out.println(relativeURI);
-        System.out.println(queryString);
-
+        // String queryString = request.getQueryString();
 
         try {
             boolean isPresent = listMapping.containsKey(relativeURI);
@@ -193,7 +241,6 @@ public class FrontController extends HttpServlet {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;           
             }
-            
             Mapping mapping =  this.listMapping.get(relativeURI);
             mapping.isValidVerb(request);
 
@@ -203,6 +250,9 @@ public class FrontController extends HttpServlet {
             Object instance = apiRequest.getClass1().getDeclaredConstructor().newInstance();
             List<Object> listArgs = ServletUtil.parseParameters(request, method);
 
+            BindingResult br = hasErrors(listArgs);
+            if (br != null) setBackPage(request, br); else request.removeAttribute("backPage");
+            
             ServletUtil.putSession(request,  instance);
             Object valueFunction = method.invoke(instance, listArgs.toArray());
             

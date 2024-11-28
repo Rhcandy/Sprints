@@ -2,22 +2,158 @@ package mg.itu.prom16.util;
 
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+<<<<<<< Updated upstream
+=======
+import java.util.Map;
+import java.util.regex.Pattern;
+
+>>>>>>> Stashed changes
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.Part;
 import mg.itu.prom16.annotation.ModelParam;
 import mg.itu.prom16.annotation.MultiPartFile;
 import mg.itu.prom16.annotation.RequestFile;
 import mg.itu.prom16.annotation.RequestParam;
+<<<<<<< Updated upstream
+=======
+import mg.itu.prom16.exception.InvalidConstraintException;
+import mg.itu.prom16.validation.BindingResult;
+import mg.itu.prom16.validation.FieldError;
+import mg.itu.prom16.validation.annotation.Valid;
+import mg.itu.prom16.validation.constraints.Email;
+import mg.itu.prom16.validation.constraints.Max;
+import mg.itu.prom16.validation.constraints.Min;
+import mg.itu.prom16.validation.constraints.NotBlank;
+import mg.itu.prom16.validation.constraints.Size;
+>>>>>>> Stashed changes
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public class ServletUtil {
+<<<<<<< Updated upstream
+=======
+    private static final String EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
+
+    public static boolean isValidEmail(String email) {
+        return Pattern.matches(EMAIL_REGEX, email);
+    }
+
+    // validation
+    public static void setParamsModel(HttpServletRequest request, Object o, String valParam, boolean haveValidAnnot, List<FieldError> errors) throws Exception {
+        for (Field atr : o.getClass().getDeclaredFields()) {
+            atr.setAccessible(true);
+            String val = request.getParameter(valParam + "." + atr.getName());
+            Object valeurATr = parseValue(val, atr.getType());
+            atr.set(o, valeurATr);
+            if (haveValidAnnot) {
+                checkValidation(atr, o, errors);
+            }
+        }
+    }
+
+    public static String getErrorsStr(List<FieldError> errors) {
+        StringBuilder errorMessages = new StringBuilder();
+        errorMessages.append("\n");
+        
+        // Parcourir la liste des erreurs
+        for (FieldError error : errors) {
+            errorMessages.append("Champ : ").append(error.getField()).append("\n")
+                         .append("Message : ").append(error.getErrorMessage()).append("\n");
+        }
+        
+        // Retourner toutes les erreurs sous forme de chaîne
+        return errorMessages.toString();
+    }
+
+
+    public static void checkValidation(Field atr, Object o, List<FieldError> fieldErrors) throws InvalidConstraintException, Exception {
+        if (atr.isAnnotationPresent(NotBlank.class)) {
+            Object value = atr.get(o);
+
+            if (value instanceof String) {
+                String stringValue = (String) value;
+                String message = atr.getAnnotation(NotBlank.class).message();
+
+                if (stringValue.trim().isEmpty()) {
+                    fieldErrors.add(new FieldError(atr.getName(), message, stringValue, "NotBlank"));
+                }
+            } else {
+                fieldErrors.add(new FieldError(atr.getName(),"Le champ annoté avec @NotBlank doit être de type String." ));
+            }
+        }
+        if (atr.isAnnotationPresent(Min.class)) {
+            Object value = atr.get(o);
+            Min minAnnot = atr.getAnnotation(Min.class); // Obtenir l'annotation @Min
+
+            if (value instanceof Number) {
+                double d = ((Number) value).doubleValue();
+                if (d < minAnnot.value()) {
+                    fieldErrors.add(new FieldError(atr.getName(), minAnnot.message(), d, "@Min"));
+                }
+            } else {
+                fieldErrors.add(new FieldError(atr.getName(),"Le champ annoté avec @Min doit être de type numérique." ));
+            }
+        }
+        if (atr.isAnnotationPresent(Max.class)) {
+            Object value = atr.get(o);
+            Max maxAnnot = atr.getAnnotation(Max.class); // Obtenir l'annotation @Min
+
+            if (value instanceof Number) {
+                double d = ((Number) value).doubleValue();
+                if (d > maxAnnot.value()) {
+                    fieldErrors.add(new FieldError(atr.getName(), maxAnnot.message(), d, "@Max"));
+                }
+            } else {
+                fieldErrors.add(new FieldError(atr.getName(),"Le champ annoté avec @Max doit être de type numérique." ));
+            }
+        } 
+        if (atr.isAnnotationPresent(Email.class)) {
+            Object value = atr.get(o);
+
+            if (value instanceof String) {
+                boolean emailValid = isValidEmail(value.toString());
+                if (!emailValid) {
+
+                    Email emailAnnot = atr.getAnnotation(Email.class);
+                    fieldErrors.add(new FieldError(atr.getName(), emailAnnot.message(), value, "@Email"));
+                }
+            } else {
+                fieldErrors.add(new FieldError(atr.getName(),"Le champ annoté avec @Email doit être de type String." ));
+            }
+        }
+        if (atr.isAnnotationPresent(Size.class)) {
+            Object value = atr.get(o);
+            if (value instanceof String || value instanceof Collection 
+                || value instanceof Object[] || value instanceof Map || value instanceof List 
+                || value instanceof ArrayList) 
+            {
+                Size sizeAnnot = atr.getAnnotation(Size.class);
+
+                if (value instanceof String) {
+                    int nombreCaracteres = value.toString().length();
+                    if (sizeAnnot.min() > nombreCaracteres ||  sizeAnnot.max() < nombreCaracteres) {
+                        fieldErrors.add(new FieldError(atr.getName(), sizeAnnot.message(), value, "@Size"));
+                    }
+                } else if (value instanceof List) {
+                    int nombreCaracteres = ((List) value).size();
+                    if (sizeAnnot.min() > nombreCaracteres ||  sizeAnnot.max() < nombreCaracteres) {
+                        fieldErrors.add(new FieldError(atr.getName(), sizeAnnot.message(), value, "@Size"));
+                    }
+                }
+            }
+        }
+    }
+    // end valdation
+
+>>>>>>> Stashed changes
     public static List<Object> parseParameters(HttpServletRequest request, Method method) throws Exception {
         List<Object> parsedArgs = new ArrayList<>();
-
+        List<FieldError> fieldErrors = new ArrayList<>();
+        boolean validAnnotExist = false;
         for (Parameter arg : method.getParameters()) {
             
             if (arg.getType().equals(MySession.class)) {
@@ -39,6 +175,11 @@ public class ServletUtil {
             ModelParam modelParam = arg.getAnnotation(ModelParam.class);
 
             if (modelParam != null) {
+<<<<<<< Updated upstream
+=======
+                Valid valid = arg.getAnnotation(Valid.class);
+                validAnnotExist = true;
+>>>>>>> Stashed changes
                 String valueParam = modelParam.value();
                 if (valueParam.isEmpty()) {
                     valueParam = arg.getName();
@@ -46,6 +187,7 @@ public class ServletUtil {
 
                 Class<?> paramaType = arg.getType();
                 Constructor<?> constructor = paramaType.getDeclaredConstructor();
+<<<<<<< Updated upstream
                 Object o = constructor.newInstance();
 
                 for (Field atr : o.getClass().getDeclaredFields()) {
@@ -54,15 +196,24 @@ public class ServletUtil {
                     atr.set(o, val);
                 }
                 value = o;
+=======
+                Object instance = constructor.newInstance();
+                setParamsModel(request, instance, valueParam, valid != null, fieldErrors); // nouveau
+                value = instance;
+>>>>>>> Stashed changes
             }
             else if (requestParam != null) {
                 if (requestParam.value().isEmpty()) {
                     annotName = arg.getName();
-                }
-                else {
+                }else {
                     annotName = requestParam.value();
                 }
                 value = request.getParameter(annotName);
+            } 
+            else if (arg.getType().equals(BindingResult.class) && validAnnotExist) {
+                BindingResult br = getBindingResult(fieldErrors);
+                parsedArgs.add(br);
+                continue;
             }
             else {
                 throw new Exception("Annotation not found");
@@ -70,6 +221,21 @@ public class ServletUtil {
             parsedArgs.add(value);
         }
         return parsedArgs;
+    }
+
+    public static Object invokeMethod(Mapping mapping , HttpServletRequest request, String verb) throws Exception {
+        ApiRequest apiRequest = mapping.getRequest(verb);
+        Method method = apiRequest.getMethod();
+
+        Object instance = apiRequest.getClass1().getDeclaredConstructor().newInstance();
+        List<Object> listArgs = parseParameters(request, method);
+        putSession(request,  instance);
+        Object valueFunction = method.invoke(instance, listArgs.toArray());
+        return valueFunction;
+    }
+
+    private static BindingResult getBindingResult(List<FieldError> fieldErrors) {
+        return new BindingResult(fieldErrors);
     }
 
     private static void setMultipartFile(Parameter argParameter, HttpServletRequest request, List<Object> values) throws Exception {
