@@ -2,7 +2,9 @@ package mg.itu.prom16.util;
 
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,24 +13,21 @@ import mg.itu.prom16.annotation.ModelParam;
 import mg.itu.prom16.annotation.MultiPartFile;
 import mg.itu.prom16.annotation.RequestFile;
 import mg.itu.prom16.annotation.RequestParam;
-<<<<<<< Updated upstream
-=======
 import mg.itu.prom16.exception.InvalidConstraintException;
+import mg.itu.prom16.validation.BindingResult;
 import mg.itu.prom16.validation.FieldError;
 import mg.itu.prom16.validation.annotation.Valid;
 import mg.itu.prom16.validation.constraints.Email;
 import mg.itu.prom16.validation.constraints.Max;
 import mg.itu.prom16.validation.constraints.Min;
 import mg.itu.prom16.validation.constraints.NotBlank;
->>>>>>> Stashed changes
+import mg.itu.prom16.validation.constraints.Size;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public class ServletUtil {
-<<<<<<< Updated upstream
-=======
     private static final String EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
 
     public static boolean isValidEmail(String email) {
@@ -36,8 +35,7 @@ public class ServletUtil {
     }
 
     // validation
-    public static void setParamsModel(HttpServletRequest request, Object o, String valParam, boolean haveValidAnnot) throws Exception {
-        List<FieldError> errors = new ArrayList<>();
+    public static void setParamsModel(HttpServletRequest request, Object o, String valParam, boolean haveValidAnnot, List<FieldError> errors) throws Exception {
         for (Field atr : o.getClass().getDeclaredFields()) {
             atr.setAccessible(true);
             String val = request.getParameter(valParam + "." + atr.getName());
@@ -47,13 +45,9 @@ public class ServletUtil {
                 checkValidation(atr, o, errors);
             }
         }
-        if (!errors.isEmpty()) {
-            String error = getErrors(errors);
-            throw new InvalidConstraintException(error);
-        }
     }
 
-    public static String getErrors(List<FieldError> errors) {
+    public static String getErrorsStr(List<FieldError> errors) {
         StringBuilder errorMessages = new StringBuilder();
         errorMessages.append("\n");
         
@@ -123,13 +117,34 @@ public class ServletUtil {
                 fieldErrors.add(new FieldError(atr.getName(),"Le champ annoté avec @Email doit être de type String." ));
             }
         }
+        if (atr.isAnnotationPresent(Size.class)) {
+            Object value = atr.get(o);
+            if (value instanceof String || value instanceof Collection 
+                || value instanceof Object[] || value instanceof Map || value instanceof List 
+                || value instanceof ArrayList) 
+            {
+                Size sizeAnnot = atr.getAnnotation(Size.class);
+
+                if (value instanceof String) {
+                    int nombreCaracteres = value.toString().length();
+                    if (sizeAnnot.min() > nombreCaracteres ||  sizeAnnot.max() < nombreCaracteres) {
+                        fieldErrors.add(new FieldError(atr.getName(), sizeAnnot.message(), value, "@Size"));
+                    }
+                } else if (value instanceof List) {
+                    int nombreCaracteres = ((List) value).size();
+                    if (sizeAnnot.min() > nombreCaracteres ||  sizeAnnot.max() < nombreCaracteres) {
+                        fieldErrors.add(new FieldError(atr.getName(), sizeAnnot.message(), value, "@Size"));
+                    }
+                }
+            }
+        }
     }
     // end valdation
 
->>>>>>> Stashed changes
     public static List<Object> parseParameters(HttpServletRequest request, Method method) throws Exception {
         List<Object> parsedArgs = new ArrayList<>();
-
+        List<FieldError> fieldErrors = new ArrayList<>();
+        boolean validAnnotExist = false;
         for (Parameter arg : method.getParameters()) {
             
             if (arg.getType().equals(MySession.class)) {
@@ -152,6 +167,7 @@ public class ServletUtil {
 
             if (modelParam != null) {
                 Valid valid = arg.getAnnotation(Valid.class);
+                validAnnotExist = true;
                 String valueParam = modelParam.value();
                 if (valueParam.isEmpty()) {
                     valueParam = arg.getName();
@@ -159,18 +175,22 @@ public class ServletUtil {
 
                 Class<?> paramaType = arg.getType();
                 Constructor<?> constructor = paramaType.getDeclaredConstructor();
-                Object o = constructor.newInstance();
-                setParamsModel(request, o, valueParam, valid != null); // nouveau
-                value = o;
+                Object instance = constructor.newInstance();
+                setParamsModel(request, instance, valueParam, valid != null, fieldErrors); // nouveau
+                value = instance;
             }
             else if (requestParam != null) {
                 if (requestParam.value().isEmpty()) {
                     annotName = arg.getName();
-                }
-                else {
+                }else {
                     annotName = requestParam.value();
                 }
                 value = request.getParameter(annotName);
+            } 
+            else if (arg.getType().equals(BindingResult.class) && validAnnotExist) {
+                BindingResult br = getBindingResult(fieldErrors);
+                parsedArgs.add(br);
+                continue;
             }
             else {
                 throw new Exception("Annotation not found");
@@ -178,6 +198,21 @@ public class ServletUtil {
             parsedArgs.add(value);
         }
         return parsedArgs;
+    }
+
+    public static Object invokeMethod(Mapping mapping , HttpServletRequest request, String verb) throws Exception {
+        ApiRequest apiRequest = mapping.getRequest(verb);
+        Method method = apiRequest.getMethod();
+
+        Object instance = apiRequest.getClass1().getDeclaredConstructor().newInstance();
+        List<Object> listArgs = parseParameters(request, method);
+        putSession(request,  instance);
+        Object valueFunction = method.invoke(instance, listArgs.toArray());
+        return valueFunction;
+    }
+
+    private static BindingResult getBindingResult(List<FieldError> fieldErrors) {
+        return new BindingResult(fieldErrors);
     }
 
     private static void setMultipartFile(Parameter argParameter, HttpServletRequest request, List<Object> values) throws Exception {
