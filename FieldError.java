@@ -1,5 +1,6 @@
 package mg.itu.prom16.validation;
 import java.io.Serializable;
+import java.util.List;
 
 public class FieldError implements Serializable {
     private String field;          // Le nom du champ
@@ -8,6 +9,21 @@ public class FieldError implements Serializable {
     private String errorCode;      // Le code d'erreur (ex: "NotBlank", "Size", etc.)
 
     // Constructeur
+
+    public static String getSpanError(List<FieldError> fieldErrors, String colorError, String nameField) {
+        String str = "";
+        if (fieldErrors == null) {
+            return str;   
+        }
+        for (FieldError fieldError : fieldErrors) {
+            if (nameField.equals(fieldError.getField())) {
+                str += "<span style='color: "+ colorError + ";'>"+ fieldError.getErrorMessage() + 
+                        "</span><br>";
+            }
+        }
+        return str;
+    }
+
     public FieldError(String field, String errorMessage, Object rejectedValue, String errorCode) {
         this.field = field;
         this.errorMessage = errorMessage;
