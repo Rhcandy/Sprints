@@ -1,0 +1,27 @@
+MODE D'UTILISATION DE MON SPRING BOOT
+
+=====================================
+Sprint 13 :
+    Sprint 14 sans revenir dans la page mais juste on affiche une exception
+
+Sprint 14 :
+    Validation des attributs dans une classe 
+        * Mettre des annotations pour valider l'attribut 
+            (Email, Max, Min, NotBlank, Size)
+        * Le parametre des la fonction controller doit etre un objet
+        * Mettre une annotation Valid sur le parametre (qui est un objet) de la fonction
+        * Mettre une annotation ErrorHandlerUrl pour revenir dans la page en cas d'erreur
+        * Mettre un autre parametre BindingResult pour gerer les errors
+        * Utilises une fonction hasErrors si y a un erreur
+        * Utilise bindingResult.getBackPage pour y retourner (ca retourne  ModelView)
+        * Utilise la fonction bindingResult.getFieldErrors pour recuperer les erreurs
+
+Sprint 15 :
+    Authorization des methodes :
+        - Authentification exigee : 
+            * Mettre une annotation RequireLogin dans la methode souhaitee
+            * la variable de session de login devrait etre similaire a celle dans web.xml
+
+        - Role exige : 
+            * Mettre une annotation AuthorizedRoles avec une valeur (valeur peut contenir une ou plusieurs role)
+            * La variable de session de login devrait etre similaire a celle dans web.xml
